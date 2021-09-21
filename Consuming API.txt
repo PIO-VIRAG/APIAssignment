@@ -1,0 +1,50 @@
+     H  DftActGrp(*No) ActGrp('TEST')
+
+      *‚--------------------------------------------------------------------*
+      *‚Standalone Variable
+      *‚--------------------------------------------------------------------*
+        Dcl-S Command Char(200);
+        Dcl-S Url     Char(200);
+        Dcl-S Url1    Char(200);
+
+      *‚--------------------------------------------------------------------*
+      *‚Procedure
+      *‚--------------------------------------------------------------------*
+        Dcl-Pr Cmd Extpgm('QCMDEXC');
+          *N  Char(200) Options(*varsize) Const;
+          *N  packed(15:5) Const;
+        End-Pr;
+
+        Command = 'CHGJOB CCSID(37)';
+        Cmd(Command:%Len(%Trim(Command)));
+
+        Url = 'https://reqres.in/api/users/3';
+
+        Exec Sql Set Option Commit = *None;
+
+        Exec Sql
+          Drop table qtemp/TempF;
+
+        Exec Sql
+          Create table qtemp/TempF (
+                    Id  varchar(2),
+                    FirstName varchar(20),
+                    LastName varchar(20),
+                    Emailid varchar(100));
+
+      *‚Inserting the data in Qtemp file Using SYSTOOLS.HTTPGETCLOB
+
+        Exec Sql
+          Insert Into Qtemp/TempF
+          Select *
+           From Json_Table(
+              '{"data":' ||SYSTOOLS.HTTPGETCLOB (:URL,NULL) || '}',
+                '$.data'
+             Columns(Id varchar(100) PATH '$.data.id',
+                     Name varchar(20) PATH '$.data.first_name',
+                     Last varchar(20) PATH '$.data.last_name',
+                     Emailid varchar(100) PATH '$.data.email')) as VS;
+
+        *Inlr = *On;
+
+      *‚--------------------------------------------------------------------*

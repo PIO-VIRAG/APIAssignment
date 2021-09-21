@@ -1,0 +1,103 @@
+        Ctl-Opt Option(*SrcStmt:*NoDebugIo) BndDir('QC2LE':'WEB');
+        Ctl-Opt DftActGrp(*no);
+
+      *---------------------------------------------------------------
+      *External Procedure
+      *---------------------------------------------------------------
+      *Procedure for writing into browser
+
+        Dcl-Pr WriteToWeb ExtProc('QtmhWrStout');
+          Datavar     Char(65535)  Options(*varsize);
+          DatavarLen  Int(10)      Const;
+          ErrCode   Char(8000)   Options(*varsize);
+        End-pr;
+
+      *Procedure for getting environment variable
+
+        Dcl-Pr GetEnv Pointer ExtProc('getenv');
+          *N  Pointer  Value Options(*string);
+        End-Pr;
+
+      *Standard Error Data Structure
+
+        /Copy Qsysinc/QRpglesrc,Qusec
+
+      *Procedure for reading Standard input
+
+        Dcl-Pr  ReadStdInput  ExtProc('QtmhRdStin');
+          szRtnBuffer   Char(65535)  Options(*varsize);
+          nBufLen       Int(10)      Const;
+          nRtnLen       Int(10);
+          QUSEC                      Like(QUSEC);
+        End-Pr;
+
+      *Procedure for translating ASCII to EBCDIC
+
+        Dcl-Pr  Translate   Extpgm('QDCXLATE');
+          *N  packed(5:0)  Const;
+          *N  Char(32766)  Options(*varsize);
+          *N  Char(10)     Const;
+        End-Pr;
+
+      *---------------------------------------------------------------
+      *Data Structure
+      *---------------------------------------------------------------
+      *Data Structure for error code
+
+        Dcl-Ds ErrDs  Qualified;
+          BytesProv   Int(10)  Inz(0);
+          BytesAvail  Int(10)  Inz(0);
+        End-Ds;
+
+        Dcl-Ds ApiError   LikeDs(QUSEC) Inz;
+
+      *---------------------------------------------------------------
+      *Standalone Variable And Constant
+      *---------------------------------------------------------------
+        Dcl-S  Data  Char(5000);
+        Dcl-C  CRLF  x'0d25';
+
+        Dcl-S  Url          Char(100);
+        Dcl-S  ContentType  Char(100);
+        Dcl-S  ReqMethod    Char(20);
+
+        Dcl-S RtnBuffer   Char(4096) Inz;
+        Dcl-S RtnLen      Int(10);
+
+        Dcl-S  EBCData    Char(32766) Inz;
+
+      *---------------------------------------------------------------
+      *Program Starts
+      *---------------------------------------------------------------
+
+        Data = 'Content-type: text/html' + CRLF + CRLF;
+        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+
+        Data = '<h1>Hello World!!! I am Virag</h1>';
+        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+
+        Url = %Str(GetEnv('REQUEST_URI'));
+        ReqMethod = %Str(GetEnv('REQUEST_METHOD'));
+
+        If ReqMethod = 'POST';
+          ContentType = %Str(GetEnv('CONTENT_TYPE'));
+          ReadStdInput(RtnBuffer: %size(RtnBuffer): RtnLen: apiError);
+          If ContentType = 'application/json';
+            EBCData = %Trim(RtnBuffer);
+            Translate(%Len(%Trim(EBCData)): EBCData: 'QTCPEBC');
+          EndIf;
+        EndIf;
+
+        Data = 'URL:' + %Trim(Url) + '<br>' +
+          'Req Method:' + %Trim(ReqMethod) + '<br>' +
+          'ContentType:' + %Trim(ContentType) + CRLF;
+
+        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+        Data = 'Data:' + %Trim(RtnBuffer) + CRLF;
+        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+
+        Data = 'Converted Data:' + %Trim(EBCData);
+        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+
+        *Inlr = *On;
+        Return;
