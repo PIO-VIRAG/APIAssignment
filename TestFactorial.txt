@@ -1,0 +1,61 @@
+        Ctl-Opt DftActGrp(*No) BndDir('VIRAG/WEB');
+
+      //Dcl-F TESTPF keyed;
+
+        Dcl-Pr WriteToWeb ExtProc('QtmhWrStout');
+          Datavar     Char(65535)  Options(*varsize);
+          Datavarlen  Int(10)      Const;
+          ErrCode     Char(8000)   Options(*varsize);
+        End-Pr;
+
+        Dcl-Ds  ErrDS   Qualified;
+          BytesProv   Int(10)  Inz(0);
+          BytesAvail  Int(10)  Inz(0);
+        End-Ds;
+
+        Dcl-Pr GetEnv Pointer ExtProc('getenv');
+          *N  Pointer  Value Options(*string);
+        End-Pr;
+
+        Dcl-S  Data   Char(5000);
+
+        Dcl-C  CRLF   x'0d25';
+
+        Dcl-S  Url          Char(100);
+        Dcl-S  ContentType  Char(100);
+        Dcl-S  ReqMethod    Char(20);
+
+        Dcl-S Parm    Char(100);
+        Dcl-S Pos     packed(4);
+        Dcl-S Num     packed(2);
+        Dcl-S Output  packed(50) Inz(1);
+
+        Data = 'Content-type: text/plain'+ CRLF + CRLF ;
+        WriteToWeb(Data : %len(%Trim(Data)) : ErrDs);
+
+        Url = %Str(GetEnv('REQUEST_URI'));
+        ReqMethod = %Str(GetEnv('REQUEST_METHOD'));
+
+        Data = 'URL:' + %Trim(Url) + CRLF +
+          'Req Method:' + %Trim(ReqMethod) + CRLF + CRLF;
+        //'ContentType:' + %Trim(ContentType) + CRLF;
+        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+
+        Parm = '/testfact/';
+        Pos = %Scan(%Trim(Parm):Url) + %Len(%Trim(Parm));
+
+        Num = %Int(%SubSt(Url:pos:2));
+
+        Data = 'Factorial of Number ' +%Char(Num) + ' is :';
+        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+
+        Dow Num>=1 ;
+          Output = Output*Num;
+          num = num - 1;
+        Enddo;
+
+        Data = %Char(Output) ;
+        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+
+        *Inlr = *On;
+        Return;

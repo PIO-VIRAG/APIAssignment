@@ -1,0 +1,113 @@
+        Ctl-opt dftActGrp(*no) bndDir('QC2LE':'WEB');
+
+        /copy qsysinc/qrpglesrc,qusec
+        /copy qrpglesrc,base64_h
+
+        Dcl-S Data        Char(5000);
+        Dcl-S ContentType Char(100);
+        Dcl-S ReqMethod   Char(20);
+        Dcl-S ErrMsg      VarChar(500)   ;
+        Dcl-S AuthName    Char(5000);
+        Dcl-C CRLF        x'0d25';
+
+     * -------------------------------------------------------------
+     * Write to web: External Procedure for writing data into browser
+     * -----------------------------------------------------------
+        Dcl-pr writeToWeb extproc('QtmhWrStout');
+          DataVar    Char(65535) Options(*varsize);
+          DataVarLen Int(10)     Const;
+          ErrCode    Char(8000)  Options(*varsize);
+        End-pr;
+
+     * -----------------------------------------------------------
+     * Get environment: Procedure for getting environment variables
+     * -------------------------------------------------------------
+        Dcl-pr getEnv pointer extproc('getenv');
+          *n pointer value options(*string);
+        End-pr;
+
+     * -------------------------------------------------------------
+     * Check Authorization: Procedure for checking authorization
+     * -------------------------------------------------------------
+        Dcl-pr checkAuth char(5000);
+          AuthName char(5000);
+        End-pr;
+
+     * -------------------------------------------------------------
+     * Translate: to convert ASCII to EBCDIC
+     * -------------------------------------------------------------
+        Dcl-pr translate extPgm('QDCXLATE');
+          length packed(5:0) const;
+          data char(32766) options(*varsize);
+          table char(10) const;
+        End-Pr;
+
+        Dcl-ds errDs qualified ;
+          bytesProv int(10) inz(0) ;
+          bytesAvail int(10) inz(0) ;
+        End-Ds;
+
+     * -------------------------------------------------------------
+     * MAIN PROGRAM
+     * -------------------------------------------------------------
+        ReqMethod = %Str(getEnv('REQUEST_METHOD'));
+        Data = 'Content-type: text/plain' + CRLF + CRLF ;
+        WriteToWeb(data: %len(%trim( data )): errDS);
+
+        AuthName = %Str(getEnv('HTTP_AUTHORIZATION'));
+
+        If authName <> *blanks;
+          authName = checkAuth(authName);
+        Endif;
+        Return;
+
+     * -------------------------------------------------------------
+     * Check Authorization: Procedure for checking authorization
+     * -------------------------------------------------------------
+        Dcl-Proc CheckAuth ;
+          Dcl-PI *n char(5000);
+            authName char(5000);
+          End-PI;
+          Dcl-PR authuser extPgm('AUTHUSER');
+            userId char(10);
+            passwd char(10);
+            Message char(50);
+          End-PR;
+
+          Dcl-S LenPos int(3);
+
+          Dcl-S UserId          Char(10);
+          Dcl-S passwd          Char(10);
+          Dcl-S Message         Char(50);
+          Dcl-S encString       Char(100) Inz;
+          Dcl-S base64EncLength Int(10:0);
+
+          LenPos = %Checkr(' ':authName);
+          AuthName = %Subst(authName:7:lenpos);
+
+     * -------------------------------------------------------------
+     * Base64 Decoding Of AuthName
+     * -------------------------------------------------------------
+          Base64EncLength = Base64_Decode( %Addr(AuthName)
+                                           : %Len(%Trim(AuthName))
+                                           : %Addr(EncString)
+                                           : %Size(EncString));
+
+          AuthName = EncString;
+     *   Converting authName ASCII to EBCDIC
+          If authName <> *blanks;
+            Translate(%len(%trim(authName)):authName:'QTCPEBC');
+          EndIf;
+
+     *   Spliting userid and password
+          LenPos = %Scan(':':AuthName);
+          UserId = %SubSt(AuthName:1:LenPos-1);
+          PassWd = %SubSt(AuthName:LenPos + 1);
+
+     *   For validating user id and password
+          Authuser(userId: passWd: message);
+
+          Message = message ;
+          WriteToWeb(message: %len(%trim( message )): errDS);
+          Return authName;
+        End-proc;

@@ -1,0 +1,24 @@
+        Ctl-Opt DftActGrp(*No) BndDir('VIRAG/WEB');
+
+        Dcl-Pr WriteToWeb ExtProc('QtmhWrStout');
+          Datavar     Char(65535)  Options(*varsize);
+          Datavarlen  Int(10)      Const;
+          ErrCode     Char(8000)   Options(*varsize);
+        End-Pr;
+
+        Dcl-Ds  ErrDS   Qualified;
+          BytesProv   Int(10)  Inz(0);
+          BytesAvail  Int(10)  Inz(0);
+        End-Ds;
+
+        Dcl-S  Data   Char(5000);
+        Dcl-C  CRLF   x'0d25';
+
+        Data = 'Content-type: text/plain'+ CRLF + CRLF ;
+        WriteToWeb(Data : %len(%Trim(Data)) : ErrDs);
+
+        Data = '<h1>Hello My Name is Virag</h1>';
+        WriteToWeb(Data : %len(%Trim(Data)) : ErrDs);
+
+        *Inlr = *On;
+        Return;
